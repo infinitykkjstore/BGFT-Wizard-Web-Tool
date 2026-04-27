@@ -14,11 +14,18 @@ from flask import Flask, render_template, request, jsonify, send_file
 BASEDIR = Path(__file__).parent
 BASE_DIR = BASEDIR / "base"
 TMP_DIR = BASEDIR / "tmp"
+TMPIMG_DIR = BASEDIR / "tmpimg"
 LOGS_DIR = BASEDIR / "logs"
 ROUTES_DIR = BASEDIR / "routes"
 
-for d in [BASE_DIR, TMP_DIR, LOGS_DIR, ROUTES_DIR]:
+for d in [BASE_DIR, TMP_DIR, TMPIMG_DIR, LOGS_DIR, ROUTES_DIR]:
     d.mkdir(exist_ok=True)
+
+sys.path.insert(0, str(BASEDIR / "modules"))
+try:
+    from LibOrbisPkg import PKGMetadataExtractor
+except ImportError:
+    PKGMetadataExtractor = None
 
 PAYLOAD_REPO = "https://github.com/infinitykkjstore/BGFT-Payload"
 PAYLOAD_DIR = BASE_DIR / "BGFT-Payload"
@@ -251,6 +258,74 @@ def background_setup():
         env_ready.set()
     
     threading.Thread(target=wait_loop, daemon=True).start()
+
+def extract_pkg_metadata(pkg_url: str) -> dict:
+    """Extrai metadados do PKG/manifesto usando LibOrbisPkg"""
+    log(f"Extracting metadata from: {pkg_url}")
+    
+    if PKGMetadataExtractor is None:
+        log("LibOrbisPkg not available")
+        return {"success": False, "error": "LibOrbisPkg module not found"}
+    
+    try:
+        extractor = PKGMetadataExtractor(pkg_url, verbose=True)
+        metadata = extractor.extract_metadata()
+        
+        title = metadata.get('title', 'Unknown')
+        title_id = metadata.get('title_id', '')
+        category = metadata.get('category', 'gd')
+        pkg_size = metadata.get('package_size', 0)
+        bgft_type = metadata.get('bgft_package_type', 'PS4GD')
+        icon_data = metadata.get('icon_data')
+        
+        icon_path = None
+        if icon_data:
+            title_safe = "".join(c for c in title if c.isalnum() or c in " _-").strip()[:30]
+            icon_filename = f"{title_safe}_{title_id}.png" if title_id else f"{title_safe}.png"
+            icon_path = TMPIMG_DIR / icon_filename
+            
+            with open(icon_path, 'wb') as f:
+                f.write(icon_data)
+            log(f"Icon saved: {icon_path.name}")
+        
+        return {
+            "success": True,
+            "title": title,
+            "title_id": title_id,
+            "category": category,
+            "pkg_size": pkg_size,
+            "pkg_type": bgft_type,
+            "icon_path": f"/api/icon/{icon_path.name}" if icon_path else None,
+            "content_id": metadata.get('content_id', ''),
+        }
+        
+    except Exception as e:
+        log(f"Metadata extraction failed: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.route("/api/meta")
+def api_meta():
+    pkg_url = request.args.get("url", "")
+    
+    if not pkg_url:
+        return jsonify({"error": "URL required"}), 400
+    
+    result = extract_pkg_metadata(pkg_url)
+    
+    if not result.get("success"):
+        return jsonify(result), 500
+    
+    return jsonify(result)
+
+@app.route("/api/icon/<path:filename>")
+def api_icon(filename):
+    safe_name = "".join(c for c in filename if c.isalnum() or c in "._-")
+    path = TMPIMG_DIR / safe_name
+    
+    if not path.exists():
+        return jsonify({"error": "Icon not found"}), 404
+    
+    return send_file(path, mimetype="image/png")
 
 @app.route("/")
 def index():

@@ -64,6 +64,15 @@
         }
         .btn:hover { background: #00ff00; color: #000; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary {
+            padding: 10px;
+            background: #001100;
+            border: 1px solid #00aa00;
+            color: #00aa00;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .btn-secondary:hover { background: #00aa00; color: #000; }
         .logs-box {
             background: #000;
             border: 1px solid #004400;
@@ -98,6 +107,20 @@
             padding: 20px;
         }
         .spinner.show { display: block; }
+        .icon-preview {
+            width: 128px;
+            height: 128px;
+            margin: 10px auto;
+            display: block;
+            border: 2px solid #004400;
+        }
+        .meta-info {
+            background: #111;
+            border: 1px solid #004400;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -109,10 +132,17 @@
             <span id="statusText">Checking environment...</span>
         </div>
         
+        <div class="meta-info" id="metaInfo" style="display:none;">
+            <div id="metaTitle"></div>
+            <div id="metaSize"></div>
+            <img id="iconPreview" class="icon-preview" style="display:none;">
+        </div>
+        
         <form id="buildForm">
             <div class="form-group">
-                <label>Package URL *</label>
-                <input type="text" id="pkgUrl" required placeholder="https://...">
+                <label>Package URL (PKG or Manifest) *</label>
+                <input type="text" id="pkgUrl" required placeholder="https://...pkg or ...manifest.json">
+                <button type="button" class="btn btn-secondary" id="fetchMetaBtn">Fetch Metadata</button>
             </div>
             <div class="form-group">
                 <label>Package Name *</label>
@@ -164,6 +194,11 @@
         const resultFile = document.getElementById('resultFile');
         const resultSize = document.getElementById('resultSize');
         const downloadLink = document.getElementById('downloadLink');
+        const fetchMetaBtn = document.getElementById('fetchMetaBtn');
+        const metaInfo = document.getElementById('metaInfo');
+        const metaTitle = document.getElementById('metaTitle');
+        const metaSize = document.getElementById('metaSize');
+        const iconPreview = document.getElementById('iconPreview');
         
         let ready = false;
         let pollInterval;
@@ -205,6 +240,50 @@
                 console.error(e);
             }
         }
+        
+        fetchMetaBtn.addEventListener('click', async () => {
+            const url = document.getElementById('pkgUrl').value.trim();
+            if (!url) {
+                addLog('Please enter a Package URL', 'log-error');
+                return;
+            }
+            
+            fetchMetaBtn.disabled = true;
+            fetchMetaBtn.textContent = 'Fetching...';
+            
+            try {
+                const res = await fetch('/api/meta?url=' + encodeURIComponent(url));
+                const data = await res.json();
+                
+                fetchMetaBtn.disabled = false;
+                fetchMetaBtn.textContent = 'Fetch Metadata';
+                
+                if (data.success) {
+                    document.getElementById('pkgName').value = data.title || '';
+                    document.getElementById('pkgId').value = data.title_id || '';
+                    document.getElementById('pkgType').value = data.pkg_type || 'PS4GD';
+                    document.getElementById('pkgSize').value = data.pkg_size || 0;
+                    
+                    if (data.icon_path) {
+                        document.getElementById('pkgIcon').value = data.icon_path;
+                        iconPreview.src = data.icon_path;
+                        iconPreview.style.display = 'block';
+                    }
+                    
+                    metaTitle.textContent = 'Title: ' + (data.title || 'N/A');
+                    metaSize.textContent = 'Size: ' + ((data.pkg_size || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                    metaInfo.style.display = 'block';
+                    
+                    addLog('Metadata extracted: ' + data.title, 'log-success');
+                } else {
+                    addLog('Metadata error: ' + data.error, 'log-error');
+                }
+            } catch (e) {
+                fetchMetaBtn.disabled = false;
+                fetchMetaBtn.textContent = 'Fetch Metadata';
+                addLog('Error: ' + e.message, 'log-error');
+            }
+        });
         
         buildForm.addEventListener('submit', async (e) => {
             e.preventDefault();
