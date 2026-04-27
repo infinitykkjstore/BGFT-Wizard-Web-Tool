@@ -13,7 +13,7 @@
             min-height: 100vh;
             padding: 20px;
         }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         h1 { text-align: center; margin-bottom: 30px; text-shadow: 0 0 10px #00ff00; }
         .status-box {
             background: #111;
@@ -32,21 +32,18 @@
         .status-ready { background: #00ff00; }
         .status-loading { background: #ffff00; }
         .status-error { background: #ff0000; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; }
-        
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; color: #00cc00; }
-        .input-group input {
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #00cc00; }
+        input {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: #111;
             border: 1px solid #004400;
             color: #00ff00;
             font-family: inherit;
-            font-size: 14px;
         }
-        .input-group input:focus { outline: none; border-color: #00ff00; }
-        
+        input:focus { outline: none; border-color: #00ff00; }
         .btn {
             width: 100%;
             padding: 15px;
@@ -57,10 +54,10 @@
             font-size: 16px;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 10px;
         }
         .btn:hover { background: #00ff00; color: #000; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        
         .logs-box {
             background: #000;
             border: 1px solid #004400;
@@ -68,19 +65,16 @@
             height: 250px;
             overflow-y: auto;
             font-size: 12px;
-            margin-top: 20px;
         }
         .log-line { margin-bottom: 3px; }
         .log-error { color: #ff0000; }
         .log-success { color: #00ff00; }
-        
         .result-box {
             display: none;
             background: #111;
             border: 1px solid #00ff00;
             padding: 20px;
             margin-top: 20px;
-            text-align: center;
         }
         .result-box.show { display: block; }
         .download-link {
@@ -91,40 +85,40 @@
             text-decoration: none;
             margin-top: 10px;
         }
+        .spinner { display: none; text-align: center; padding: 20px; }
+        .spinner.show { display: block; }
         
         .meta-card {
-            display: none;
             background: #111;
             border: 1px solid #004400;
             padding: 20px;
             margin-bottom: 20px;
-            text-align: center;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
         }
-        .meta-card.show { display: block; }
-        .meta-icon {
+        .meta-card.hidden { display: none; }
+        .meta-card img {
             width: 128px;
             height: 128px;
-            margin: 0 auto 15px;
-            border: 2px solid #00ff00;
-            display: block;
+            border: 2px solid #00aa00;
         }
         .meta-details {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            text-align: left;
-            font-size: 13px;
+            flex: 1;
         }
-        .meta-label { color: #00aa00; }
-        .meta-value { color: #00ff00; }
-        .meta-full { grid-column: 1 / -1; }
-        
-        .spinner {
-            display: none;
-            text-align: center;
-            padding: 30px;
+        .meta-details h2 {
+            margin-bottom: 10px;
+            color: #00ff00;
         }
-        .spinner.show { display: block; }
+        .meta-details p {
+            margin: 5px 0;
+            color: #00aa00;
+            font-size: 14px;
+        }
+        .meta-details .pkg-id {
+            color: #ffff00;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -136,35 +130,36 @@
             <span id="statusText">Checking environment...</span>
         </div>
         
-        <div class="input-group">
+        <div class="form-group">
             <label>Package URL (PKG or Manifest)</label>
             <input type="text" id="pkgUrl" placeholder="https://...pkg or ...manifest.json">
+            <button type="button" class="btn" id="fetchBtn">Fetch & Build</button>
         </div>
         
-        <button class="btn" id="fetchBtn">Fetch Metadata</button>
-        
-        <div class="meta-card" id="metaCard">
-            <img id="metaIcon" class="meta-icon">
+        <div class="meta-card hidden" id="metaCard">
+            <img id="iconImg" src="" alt="Icon">
             <div class="meta-details">
-                <div class="meta-full"><span class="meta-label">Title:</span> <span class="meta-value" id="metaTitle"></span></div>
-                <div><span class="meta-label">ID:</span> <span class="meta-value" id="metaTitleId"></span></div>
-                <div><span class="meta-label">Type:</span> <span class="meta-value" id="metaType"></span></div>
-                <div><span class="meta-label">Size:</span> <span class="meta-value" id="metaSize"></span></div>
-                <div class="meta-full"><span class="meta-label">Category:</span> <span class="meta-value" id="metaCategory"></span></div>
+                <h2 id="metaTitle">-</h2>
+                <p class="pkg-id" id="metaId">-</p>
+                <p id="metaType">-</p>
+                <p id="metaSize">-</p>
+                <p id="metaCategory">-</p>
+                <button type="button" class="btn" id="buildBtn">Build Payload</button>
             </div>
-            <button class="btn" id="buildBtn" style="margin-top:15px;">Build Payload</button>
         </div>
         
         <div class="spinner" id="spinner">
-            <h2>Compiling...</h2>
+            <h2>Processing...</h2>
         </div>
         
         <div class="result-box" id="resultBox">
             <h2>Build Complete!</h2>
-            <p id="resultSize"></p>
+            <p id="resultInfo"></p>
             <a class="download-link" id="downloadLink" href="#">Download payload.bin</a>
+            <button type="button" class="btn" id="newBtn" style="margin-top:10px;padding:10px;">New Payload</button>
         </div>
         
+        <h2 style="margin-top: 30px;">Logs</h2>
         <div class="logs-box" id="logsBox"></div>
     </div>
     
@@ -172,91 +167,89 @@
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const logsBox = document.getElementById('logsBox');
+        const pkgUrl = document.getElementById('pkgUrl');
         const fetchBtn = document.getElementById('fetchBtn');
-        const buildBtn = document.getElementById('buildBtn');
         const metaCard = document.getElementById('metaCard');
+        const iconImg = document.getElementById('iconImg');
+        const metaTitle = document.getElementById('metaTitle');
+        const metaId = document.getElementById('metaId');
+        const metaType = document.getElementById('metaType');
+        const metaSize = document.getElementById('metaSize');
+        const metaCategory = document.getElementById('metaCategory');
+        const buildBtn = document.getElementById('buildBtn');
         const spinner = document.getElementById('spinner');
         const resultBox = document.getElementById('resultBox');
+        const resultInfo = document.getElementById('resultInfo');
         const downloadLink = document.getElementById('downloadLink');
+        const newBtn = document.getElementById('newBtn');
         
-        let ready = false;
         let currentMeta = null;
+        let ready = false;
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = 'log-line ' + type;
+            div.textContent = '[' + new Date().toTimeString().slice(0,8) + '] ' + msg;
+            logsBox.appendChild(div);
+            logsBox.scrollTop = logsBox.scrollHeight;
+        }
         
         function updateStatus(state, text) {
             statusDot.className = 'status-indicator ' + state;
             statusText.textContent = text;
         }
         
-        function addLog(msg, type = '') {
-            const div = document.createElement('div');
-            div.className = 'log-line ' + type;
-            div.textContent = msg;
-            logsBox.appendChild(div);
-            logsBox.scrollTop = logsBox.scrollHeight;
-        }
-        
         async function checkStatus() {
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
-                
-                data.logs.forEach(l => {
-                    if (!logsBox.textContent.includes(l)) addLog(l);
+                data.logs.slice(-20).forEach(l => {
+                    if (!logsBox.textContent.includes(l)) log(l);
                 });
-                
-                if (data.ready) {
-                    ready = true;
-                    updateStatus('status-ready', 'Ready');
-                    fetchBtn.disabled = false;
-                } else if (data.error) {
-                    updateStatus('status-error', 'Error: ' + data.error);
-                } else {
-                    updateStatus('status-loading', 'Setting up...');
-                    fetchBtn.disabled = true;
-                }
+                ready = data.ready;
+                updateStatus(ready ? 'status-ready' : 'status-loading', ready ? 'Ready' : 'Setting up...');
             } catch (e) { console.error(e); }
         }
         
-        fetchBtn.addEventListener('click', async () => {
-            const url = document.getElementById('pkgUrl').value.trim();
-            if (!url) return;
+        async function fetchMetadata() {
+            const url = pkgUrl.value.trim();
+            if (!url) { log('Enter URL', 'log-error'); return; }
             
             fetchBtn.disabled = true;
             fetchBtn.textContent = 'Fetching...';
+            spinner.classList.add('show');
             
             try {
                 const res = await fetch('/api/meta?url=' + encodeURIComponent(url));
                 const data = await res.json();
                 
                 fetchBtn.disabled = false;
-                fetchBtn.textContent = 'Fetch Metadata';
+                fetchBtn.textContent = 'Fetch & Build';
+                spinner.classList.remove('show');
                 
                 if (data.success) {
-                    currentMeta = data;
-                    document.getElementById('metaTitle').textContent = data.title || 'N/A';
-                    document.getElementById('metaTitleId').textContent = data.title_id || 'N/A';
-                    document.getElementById('metaType').textContent = data.pkg_type || 'PS4GD';
-                    document.getElementById('metaSize').textContent = ((data.pkg_size || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
-                    document.getElementById('metaCategory').textContent = data.category || 'gd';
-                    
-                    if (data.icon_path) {
-                        document.getElementById('metaIcon').src = data.icon_path;
-                    }
-                    
-                    metaCard.classList.add('show');
-                    addLog('Metadata: ' + data.title, 'log-success');
+                    currentMeta = { url, ...data };
+                    iconImg.src = data.icon_path || '';
+                    metaTitle.textContent = data.title || 'Unknown';
+                    metaId.textContent = data.title_id || '-';
+                    metaType.textContent = 'Type: ' + (data.pkg_type || 'PS4GD');
+                    metaSize.textContent = 'Size: ' + ((data.pkg_size || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                    metaCategory.textContent = 'Category: ' + (data.category || 'gd');
+                    metaCard.classList.remove('hidden');
+                    log('Loaded: ' + data.title, 'log-success');
                 } else {
-                    addLog('Error: ' + data.error, 'log-error');
+                    log('Error: ' + data.error, 'log-error');
                 }
             } catch (e) {
                 fetchBtn.disabled = false;
-                fetchBtn.textContent = 'Fetch Metadata';
-                addLog('Error: ' + e.message, 'log-error');
+                fetchBtn.textContent = 'Fetch & Build';
+                spinner.classList.remove('show');
+                log('Error: ' + e.message, 'log-error');
             }
-        });
+        }
         
-        buildBtn.addEventListener('click', async () => {
-            if (!ready || !currentMeta) return;
+        async function buildPayload() {
+            if (!currentMeta || !ready) return;
             
             buildBtn.disabled = true;
             spinner.classList.add('show');
@@ -264,37 +257,48 @@
             
             try {
                 const params = new URLSearchParams({
-                    url: document.getElementById('pkgUrl').value,
+                    url: currentMeta.url,
                     name: currentMeta.title,
                     id: currentMeta.title_id,
                     icon: currentMeta.icon_path || '',
-                    type: currentMeta.pkg_type,
-                    size: currentMeta.pkg_size
+                    type: currentMeta.pkg_type || 'PS4GD',
+                    size: currentMeta.pkg_size || 0
                 });
                 
                 const res = await fetch('/api/build?' + params);
                 const data = await res.json();
                 
-                spinner.classList.remove('show');
                 buildBtn.disabled = false;
+                spinner.classList.remove('show');
                 
                 if (data.success) {
-                    document.getElementById('resultSize').textContent = 'Size: ' + (data.size / 1024 / 1024).toFixed(2) + ' MB';
+                    resultInfo.textContent = 'Size: ' + (data.size / 1024 / 1024).toFixed(2) + ' MB';
                     downloadLink.href = '/api/download/' + data.file;
                     resultBox.classList.add('show');
-                    addLog('Build complete!', 'log-success');
+                    log('Build complete', 'log-success');
                 } else {
-                    addLog('Error: ' + data.error, 'log-error');
+                    log('Error: ' + data.error, 'log-error');
                 }
             } catch (e) {
-                spinner.classList.remove('show');
                 buildBtn.disabled = false;
-                addLog('Error: ' + e.message, 'log-error');
+                spinner.classList.remove('show');
+                log('Error: ' + e.message, 'log-error');
             }
-        });
+        }
+        
+        function resetForm() {
+            currentMeta = null;
+            metaCard.classList.add('hidden');
+            resultBox.classList.remove('show');
+            pkgUrl.value = '';
+        }
+        
+        fetchBtn.addEventListener('click', fetchMetadata);
+        buildBtn.addEventListener('click', buildPayload);
+        newBtn.addEventListener('click', resetForm);
         
         checkStatus();
-        setInterval(checkStatus, 2000);
+        setInterval(checkStatus, 3000);
     </script>
 </body>
 </html>
