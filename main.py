@@ -204,22 +204,13 @@ def compile_payload(params):
     
     run_cmd("make clean", cwd=str(PAYLOAD_DIR), timeout=30)
     
-    def esc(v):
-        return str(v).replace('"', '\\"')
-    
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     script_path = TMP_DIR / f"build_{ts}.sh"
     
     script_content = f'''#!/bin/bash
 cd "{PAYLOAD_DIR}"
 make clean
-make \\
-    PKG_URL="{esc(params["PKG_URL"])}" \\
-    PKG_NAME="{esc(params["PKG_NAME"])}" \\
-    PKG_ID="{esc(params["PKG_ID"])}" \\
-    PKG_ICON="{esc(params["PKG_ICON"])}" \\
-    PKG_TYPE="{esc(params["PKG_TYPE"])}" \\
-    PKG_SIZE={params["PKG_SIZE"]}
+make PKG_URL="{params["PKG_URL"]}" PKG_NAME="{params["PKG_NAME"]}" PKG_ID="{params["PKG_ID"]}" PKG_ICON="{params["PKG_ICON"]}" PKG_TYPE="{params["PKG_TYPE"]}" PKG_SIZE={params["PKG_SIZE"]}
 '''
     
     with open(script_path, "w") as f:
