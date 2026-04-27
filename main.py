@@ -58,18 +58,11 @@ def log(msg):
 
 def run_cmd(cmd, cwd=None, capture=True, timeout=300):
     try:
-        if isinstance(cmd, list):
-            result = subprocess.run(
-                cmd, cwd=cwd,
-                capture_output=capture, text=True,
-                timeout=timeout
-            )
-        else:
-            result = subprocess.run(
-                cmd, shell=True, cwd=cwd,
-                capture_output=capture, text=True,
-                timeout=timeout
-            )
+        result = subprocess.run(
+            cmd, shell=True, cwd=cwd,
+            capture_output=capture, text=True,
+            timeout=timeout
+        )
         return result.returncode, result.stdout or "", result.stderr or ""
     except subprocess.TimeoutExpired:
         return -1, "", "Timeout"
@@ -209,17 +202,23 @@ def cleanup_old_payloads():
 def compile_payload(params):
     log(f"Compiling payload: {params.get('PKG_NAME', 'Unknown')}")
     
-    log("Running: make clean")
-    code1, out1, err1 = run_cmd("make clean", cwd=str(PAYLOAD_DIR), timeout=30)
+    run_cmd("make clean", cwd=str(PAYLOAD_DIR), timeout=30)
     
-    make_args = []
-    for k, v in params.items():
-        make_args.append(f"{k}={v}")
+    def esc(v):
+        return str(v).replace('"', '\\"')
     
-    full_cmd = ["make"] + make_args
-    log(f"Running: {' '.join(full_cmd)}")
+    cmd = f'''make \\
+PKG_URL="{esc(params["PKG_URL"])}" \\
+PKG_NAME="{esc(params["PKG_NAME"])}" \\
+PKG_ID="{esc(params["PKG_ID"])}" \\
+PKG_ICON="{esc(params["PKG_ICON"])}" \\
+PKG_TYPE="{esc(params["PKG_TYPE"])}" \\
+PKG_SIZE={params["PKG_SIZE"]}
+'''
     
-    code, out, err = run_cmd(full_cmd, cwd=str(PAYLOAD_DIR), timeout=300)
+    log(f"Running: {cmd[:100]}...")
+    
+    code, out, err = run_cmd(cmd, cwd=str(PAYLOAD_DIR), timeout=300)
     
     log(f"Make output: {out[:500]}" if out else "No output")
     if err:
@@ -380,6 +379,12 @@ def api_build():
             params[k] = int(params[k])
         except:
             pass
+    
+    params["PKG_NAME"] = "".join(c for c in params["PKG_NAME"] if c.isalnum() or c in " -_").strip()[:50]
+    params["PKG_URL"] = params["PKG_URL"][:500]
+    params["PKG_ID"] = "".join(c for c in params["PKG_ID"] if c.isalnum() or c in "-_").strip()[:30]
+    params["PKG_ICON"] = params["PKG_ICON"][:300]
+    params["PKG_TYPE"] = params["PKG_TYPE"][:10]
     
     payload_path, err = compile_payload(params)
     
