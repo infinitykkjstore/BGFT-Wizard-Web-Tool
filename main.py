@@ -207,18 +207,30 @@ def compile_payload(params):
     def esc(v):
         return str(v).replace('"', '\\"')
     
-    cmd = f'''make \\
-PKG_URL="{esc(params["PKG_URL"])}" \\
-PKG_NAME="{esc(params["PKG_NAME"])}" \\
-PKG_ID="{esc(params["PKG_ID"])}" \\
-PKG_ICON="{esc(params["PKG_ICON"])}" \\
-PKG_TYPE="{esc(params["PKG_TYPE"])}" \\
-PKG_SIZE={params["PKG_SIZE"]}
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    script_path = TMP_DIR / f"build_{ts}.sh"
+    
+    script_content = f'''#!/bin/bash
+cd "{PAYLOAD_DIR}"
+make clean
+make \\
+    PKG_URL="{esc(params["PKG_URL"])}" \\
+    PKG_NAME="{esc(params["PKG_NAME"])}" \\
+    PKG_ID="{esc(params["PKG_ID"])}" \\
+    PKG_ICON="{esc(params["PKG_ICON"])}" \\
+    PKG_TYPE="{esc(params["PKG_TYPE"])}" \\
+    PKG_SIZE={params["PKG_SIZE"]}
 '''
     
-    log(f"Running: {cmd[:100]}...")
+    with open(script_path, "w") as f:
+        f.write(script_content)
     
-    code, out, err = run_cmd(cmd, cwd=str(PAYLOAD_DIR), timeout=300)
+    os.chmod(script_path, 0o755)
+    log(f"Running build script: {script_path.name}")
+    
+    code, out, err = run_cmd(str(script_path), timeout=300)
+    
+    script_path.unlink(missing_ok=True)
     
     log(f"Make output: {out[:500]}" if out else "No output")
     if err:
