@@ -280,8 +280,9 @@ def extract_pkg_metadata(pkg_url: str) -> dict:
         
         icon_path = None
         if icon_data:
-            title_safe = "".join(c for c in title if c.isalnum() or c in " _-").strip()[:30]
-            icon_filename = f"{title_safe}_{title_id}.png" if title_id else f"{title_safe}.png"
+            title_safe = "".join(c for c in title if c.isalnum() or c in "_").strip()[:30]
+            title_id_safe = "".join(c for c in title_id if c.isalnum() or c in "_").strip()[:10]
+            icon_filename = f"{title_safe}_{title_id_safe}.png"
             icon_path = TMPIMG_DIR / icon_filename
             
             with open(icon_path, 'wb') as f:
@@ -319,13 +320,23 @@ def api_meta():
 
 @app.route("/api/icon/<path:filename>")
 def api_icon(filename):
-    safe_name = "".join(c for c in filename if c.isalnum() or c in "._-")
-    path = TMPIMG_DIR / safe_name
+    import urllib.parse
+    decoded_name = urllib.parse.unquote(filename)
     
-    if not path.exists():
-        return jsonify({"error": "Icon not found"}), 404
+    safe_name = "".join(c for c in decoded_name if c.isalnum() or c in "._-_")
     
-    return send_file(path, mimetype="image/png")
+    for f in TMPIMG_DIR.glob("*.png"):
+        if safe_name.lower() in f.name.lower().replace("_", "").replace(".", ""):
+            return send_file(f, mimetype="image/png")
+    
+    for f in TMPIMG_DIR.glob("*.png"):
+        if f.stem.startswith(safe_name.rsplit("_", 1)[0][:20]):
+            return send_file(f, mimetype="image/png")
+    
+    if not safe_name or not list(TMPIMG_DIR.glob("*.png")):
+        return jsonify({"error": "Icon not found", "files": [f.name for f in TMPIMG_DIR.glob("*.png")]}), 404
+    
+    return jsonify({"error": "Icon not found"}), 404
 
 @app.route("/")
 def index():
