@@ -81,10 +81,31 @@ def check_env():
 def install_deps():
     log("Installing build dependencies...")
     
-    cmds = [
-        "sudo apt update",
-        "sudo apt install build-essential gcc make binutils yasm git -y"
-    ]
+    has_sudo = shutil.which("sudo")
+    has_apt = shutil.which("apt")
+    
+    if not has_sudo and has_apt:
+        log("sudo not found, attempting to install...")
+        code, out, err = run_cmd("apt install sudo -y", timeout=60)
+        if code == 0:
+            log("sudo installed successfully")
+            has_sudo = True
+        else:
+            log(f"Could not install sudo: {err}")
+    
+    if has_sudo:
+        cmds = [
+            "sudo apt update",
+            "sudo apt install build-essential gcc make binutils yasm git -y"
+        ]
+    elif has_apt:
+        cmds = [
+            "apt update",
+            "apt install build-essential gcc make binutils yasm git -y"
+        ]
+    else:
+        log("Neither sudo nor apt available")
+        return False
     
     for cmd in cmds:
         log(f"Running: {cmd}")
@@ -95,6 +116,7 @@ def install_deps():
             log(f"OK")
     
     time.sleep(2)
+    return True
 
 def clone_payload_repo():
     if PAYLOAD_DIR.exists():
@@ -132,8 +154,8 @@ def full_setup():
     
     try:
         if not check_env():
-            install_deps()
-            if not check_env():
+            result = install_deps()
+            if not result or not check_env():
                 raise Exception("Environment check failed after install")
         
         if not clone_payload_repo():
