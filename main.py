@@ -384,11 +384,11 @@ def api_build():
         except:
             pass
     
-    params["PKG_NAME"] = "".join(c for c in params["PKG_NAME"] if c.isalnum() or c in " -_").strip()[:50]
-    params["PKG_URL"] = params["PKG_URL"][:500]
-    params["PKG_ID"] = params["PKG_ID"].strip()[:64]
-    params["PKG_ICON"] = params["PKG_ICON"][:300]
-    params["PKG_TYPE"] = params["PKG_TYPE"][:10]
+    params["PKG_NAME"] = params["PKG_NAME"].strip()
+    params["PKG_URL"] = params["PKG_URL"].strip()
+    params["PKG_ID"] = params["PKG_ID"].strip()
+    params["PKG_ICON"] = params["PKG_ICON"].strip()
+    params["PKG_TYPE"] = params["PKG_TYPE"].strip()
     
     payload_path, err = compile_payload(params)
     
