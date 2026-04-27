@@ -58,11 +58,18 @@ def log(msg):
 
 def run_cmd(cmd, cwd=None, capture=True, timeout=300):
     try:
-        result = subprocess.run(
-            cmd, shell=True, cwd=cwd,
-            capture_output=capture, text=True,
-            timeout=timeout
-        )
+        if isinstance(cmd, list):
+            result = subprocess.run(
+                cmd, cwd=cwd,
+                capture_output=capture, text=True,
+                timeout=timeout
+            )
+        else:
+            result = subprocess.run(
+                cmd, shell=True, cwd=cwd,
+                capture_output=capture, text=True,
+                timeout=timeout
+            )
         return result.returncode, result.stdout or "", result.stderr or ""
     except subprocess.TimeoutExpired:
         return -1, "", "Timeout"
@@ -202,19 +209,17 @@ def cleanup_old_payloads():
 def compile_payload(params):
     log(f"Compiling payload: {params.get('PKG_NAME', 'Unknown')}")
     
-    env = os.environ.copy()
-    env.update(params)
+    log("Running: make clean")
+    code1, out1, err1 = run_cmd("make clean", cwd=str(PAYLOAD_DIR), timeout=30)
     
-    code, out, err = run_cmd(
-        "make clean", 
-        cwd=PAYLOAD_DIR, 
-        timeout=30
-    )
+    make_args = []
+    for k, v in params.items():
+        make_args.append(f"{k}={v}")
     
-    make_cmd = " ".join([f'{k}="{v}"' if ' ' in str(v) else f'{k}={v}' for k, v in params.items()])
-    log(f"Running: make {make_cmd}")
+    full_cmd = ["make"] + make_args
+    log(f"Running: {' '.join(full_cmd)}")
     
-    code, out, err = run_cmd(f"make {make_cmd}", cwd=PAYLOAD_DIR, timeout=300)
+    code, out, err = run_cmd(full_cmd, cwd=str(PAYLOAD_DIR), timeout=300)
     
     log(f"Make output: {out[:500]}" if out else "No output")
     if err:
