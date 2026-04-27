@@ -280,6 +280,7 @@ def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
         
         title = metadata.get('title', 'Unknown')
         title_id = metadata.get('title_id', '')
+        content_id = metadata.get('content_id', '')
         category = metadata.get('category', 'gd')
         pkg_size = metadata.get('package_size', 0)
         bgft_type = metadata.get('bgft_package_type', 'PS4GD')
@@ -301,11 +302,11 @@ def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
             "success": True,
             "title": title,
             "title_id": title_id,
+            "content_id": content_id,
             "category": category,
             "pkg_size": pkg_size,
             "pkg_type": bgft_type,
             "icon_path": icon_url,
-            "content_id": metadata.get('content_id', ''),
         }
         
     except Exception as e:

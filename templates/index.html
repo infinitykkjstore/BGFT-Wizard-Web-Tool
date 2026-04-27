@@ -231,7 +231,7 @@
                     currentMeta = { url, ...data };
                     iconImg.src = data.icon_path || '';
                     metaTitle.textContent = data.title || 'Unknown';
-                    metaId.textContent = data.title_id || '-';
+                    metaId.textContent = data.content_id || data.title_id || '-';
                     metaType.textContent = 'Type: ' + (data.pkg_type || 'PS4GD');
                     metaSize.textContent = 'Size: ' + ((data.pkg_size || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
                     metaCategory.textContent = 'Category: ' + (data.category || 'gd');
@@ -259,7 +259,7 @@
                 const params = new URLSearchParams({
                     url: currentMeta.url,
                     name: currentMeta.title,
-                    id: currentMeta.title_id,
+                    id: currentMeta.content_id || currentMeta.title_id,
                     icon: currentMeta.icon_path || '',
                     type: currentMeta.pkg_type || 'PS4GD',
                     size: currentMeta.pkg_size || 0
