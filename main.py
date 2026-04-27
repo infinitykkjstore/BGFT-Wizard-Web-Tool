@@ -17,6 +17,9 @@ TMP_DIR = BASEDIR / "tmp"
 LOGS_DIR = BASEDIR / "logs"
 ROUTES_DIR = BASEDIR / "routes"
 
+for d in [BASE_DIR, TMP_DIR, LOGS_DIR, ROUTES_DIR]:
+    d.mkdir(exist_ok=True)
+
 PAYLOAD_REPO = "https://github.com/infinitykkjstore/BGFT-Payload"
 PAYLOAD_DIR = BASE_DIR / "BGFT-Payload"
 PAYLOAD_LIB_DIR = PAYLOAD_DIR / "lib"
@@ -60,9 +63,6 @@ def run_cmd(cmd, cwd=None, capture=True, timeout=300):
         return -1, "", str(e)
 
 def check_env():
-    for d in [BASE_DIR, TMP_DIR, LOGS_DIR, ROUTES_DIR]:
-        d.mkdir(exist_ok=True)
-
     log("Checking environment...")
     
     if not shutil.which("gcc"):
@@ -265,7 +265,7 @@ def api_build():
         "logs": setup_status["logs"]
     })
 
-@app.route("/api/download/")
+@app.route("/api/download/<path:filename>")
 def api_download(filename):
     if not setup_status["complete"]:
         return jsonify({"error": "Environment not ready"}), 400
@@ -276,7 +276,7 @@ def api_download(filename):
     if not path.exists():
         return jsonify({"error": "File not found"}), 404
     
-    return send_file(path, as_attachment=True)
+    return send_file(path, as_attachment=True, download_name="payload.bin")
 
 @app.route("/api/cleanup", methods=["POST"])
 def api_cleanup():

@@ -232,9 +232,10 @@
                 buildBtn.disabled = false;
                 
                 if (data.success) {
-                    resultFile.textContent = 'File: ' + data.file;
+                    resultFile.textContent = 'File: payload.bin';
                     resultSize.textContent = 'Size: ' + (data.size / 1024 / 1024).toFixed(2) + ' MB';
                     downloadLink.href = '/api/download/' + data.file;
+                    downloadLink.download = 'payload.bin';
                     resultBox.classList.add('show');
                     addLog('Build complete: ' + data.file, 'log-success');
                 } else {
