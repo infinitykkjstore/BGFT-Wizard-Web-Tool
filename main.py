@@ -84,6 +84,11 @@ def install_deps():
     has_sudo = shutil.which("sudo")
     has_apt = shutil.which("apt")
     
+    if has_apt:
+        log("Running apt update first...")
+        code, out, err = run_cmd("apt update", timeout=120)
+        log(f"apt update: {'OK' if code == 0 else err[:100]}")
+    
     if not has_sudo and has_apt:
         log("sudo not found, attempting to install...")
         code, out, err = run_cmd("apt install sudo -y", timeout=60)
@@ -96,12 +101,12 @@ def install_deps():
     if has_sudo:
         cmds = [
             "sudo apt update",
-            "sudo apt install build-essential gcc make binutils yasm git -y"
+            "sudo apt install build-essential gcc make binutils yasm git file -y"
         ]
     elif has_apt:
         cmds = [
             "apt update",
-            "apt install build-essential gcc make binutils yasm git -y"
+            "apt install build-essential gcc make binutils yasm git file -y"
         ]
     else:
         log("Neither sudo nor apt available")
@@ -208,7 +213,16 @@ def compile_payload(params):
     if err:
         log(f"Make stderr: {err[:500]}")
     
-    if code != 0:
+    if PAYLOAD_BIN.exists():
+        log("payload.bin generated successfully")
+    elif code != 0 and "file: not found" in err:
+        log("Warning: 'file' command missing but continuing...")
+        if (PAYLOAD_DIR / "payload.bin").exists():
+            log("payload.bin found, continuing...")
+        else:
+            log(f"Compilation failed: {err}")
+            return None, f"Compilation failed: {err}"
+    elif code != 0:
         log(f"Compilation failed: {err}")
         return None, f"Compilation failed: {err}"
     
