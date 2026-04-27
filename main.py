@@ -386,7 +386,7 @@ def api_build():
     
     params["PKG_NAME"] = "".join(c for c in params["PKG_NAME"] if c.isalnum() or c in " -_").strip()[:50]
     params["PKG_URL"] = params["PKG_URL"][:500]
-    params["PKG_ID"] = "".join(c for c in params["PKG_ID"] if c.isalnum() or c in "-_").strip()[:30]
+    params["PKG_ID"] = params["PKG_ID"].strip()[:64]
     params["PKG_ICON"] = params["PKG_ICON"][:300]
     params["PKG_TYPE"] = params["PKG_TYPE"][:10]
     
