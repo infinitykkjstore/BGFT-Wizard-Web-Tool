@@ -259,7 +259,7 @@ def background_setup():
     
     threading.Thread(target=wait_loop, daemon=True).start()
 
-def extract_pkg_metadata(pkg_url: str) -> dict:
+def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
     """Extrai metadados do PKG/manifesto usando LibOrbisPkg"""
     log(f"Extracting metadata from: {pkg_url}")
     
@@ -278,7 +278,7 @@ def extract_pkg_metadata(pkg_url: str) -> dict:
         bgft_type = metadata.get('bgft_package_type', 'PS4GD')
         icon_data = metadata.get('icon_data')
         
-        icon_path = None
+        icon_url = None
         if icon_data:
             title_safe = "".join(c for c in title if c.isalnum() or c in "_").strip()[:30]
             title_id_safe = "".join(c for c in title_id if c.isalnum() or c in "_").strip()[:10]
@@ -288,6 +288,7 @@ def extract_pkg_metadata(pkg_url: str) -> dict:
             with open(icon_path, 'wb') as f:
                 f.write(icon_data)
             log(f"Icon saved: {icon_path.name}")
+            icon_url = f"{host_url}api/icon/{icon_path.name}"
         
         return {
             "success": True,
@@ -296,7 +297,7 @@ def extract_pkg_metadata(pkg_url: str) -> dict:
             "category": category,
             "pkg_size": pkg_size,
             "pkg_type": bgft_type,
-            "icon_path": f"/api/icon/{icon_path.name}" if icon_path else None,
+            "icon_path": icon_url,
             "content_id": metadata.get('content_id', ''),
         }
         
@@ -311,7 +312,7 @@ def api_meta():
     if not pkg_url:
         return jsonify({"error": "URL required"}), 400
     
-    result = extract_pkg_metadata(pkg_url)
+    result = extract_pkg_metadata(pkg_url, request.url_root)
     
     if not result.get("success"):
         return jsonify(result), 500
