@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGFT Payload Builder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        .status-box {
+            background: #111;
+            border: 1px solid #00ff00;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 1s infinite;
+        }
+        .status-ready { background: #00ff00; }
+        .status-loading { background: #ffff00; }
+        .status-error { background: #ff0000; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #00cc00; }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #111;
+            border: 1px solid #004400;
+            color: #00ff00;
+            font-family: inherit;
+        }
+        input:focus { outline: none; border-color: #00ff00; }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: #002200;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:hover { background: #00ff00; color: #000; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .logs-box {
+            background: #000;
+            border: 1px solid #004400;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-line { margin-bottom: 3px; }
+        .log-time { color: #006600; }
+        .log-error { color: #ff0000; }
+        .log-success { color: #00ff00; }
+        .result-box {
+            display: none;
+            background: #111;
+            border: 1px solid #00ff00;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .result-box.show { display: block; }
+        .download-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+        .spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ BGFT Payload Builder ⚡</h1>
+        
+        <div class="status-box">
+            <span class="status-indicator" id="statusDot"></span>
+            <span id="statusText">Checking environment...</span>
+        </div>
+        
+        <form id="buildForm">
+            <div class="form-group">
+                <label>Package URL *</label>
+                <input type="text" id="pkgUrl" required placeholder="https://...">
+            </div>
+            <div class="form-group">
+                <label>Package Name *</label>
+                <input type="text" id="pkgName" required placeholder="Game Name">
+            </div>
+            <div class="form-group">
+                <label>Package ID *</label>
+                <input type="text" id="pkgId" required placeholder="EP0000-CUSA00000-GAMENAME">
+            </div>
+            <div class="form-group">
+                <label>Package Icon URL</label>
+                <input type="text" id="pkgIcon" placeholder="http://192.168.1.2:5000/icons/...">
+            </div>
+            <div class="form-group">
+                <label>Package Type</label>
+                <input type="text" id="pkgType" value="PS4GD" placeholder="PS4GD">
+            </div>
+            <div class="form-group">
+                <label>Package Size</label>
+                <input type="number" id="pkgSize" value="0" placeholder="2805268480">
+            </div>
+            <button type="submit" class="btn" id="buildBtn">Build Payload</button>
+        </form>
+        
+        <div class="spinner" id="spinner">
+            <h2>⏳ Compiling payload...</h2>
+            <p>Check logs below for progress</p>
+        </div>
+        
+        <div class="result-box" id="resultBox">
+            <h2>✓ Build Complete!</h2>
+            <p id="resultFile"></p>
+            <p id="resultSize"></p>
+            <a class="download-link" id="downloadLink" href="#">Download payload.bin</a>
+        </div>
+        
+        <h2 style="margin-top: 30px;">📋 Build Logs</h2>
+        <div class="logs-box" id="logsBox"></div>
+    </div>
+    
+    <script>
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const logsBox = document.getElementById('logsBox');
+        const buildForm = document.getElementById('buildForm');
+        const buildBtn = document.getElementById('buildBtn');
+        const spinner = document.getElementById('spinner');
+        const resultBox = document.getElementById('resultBox');
+        const resultFile = document.getElementById('resultFile');
+        const resultSize = document.getElementById('resultSize');
+        const downloadLink = document.getElementById('downloadLink');
+        
+        let ready = false;
+        let pollInterval;
+        
+        function updateStatus(state, text) {
+            statusDot.className = 'status-indicator ' + state;
+            statusText.textContent = text;
+        }
+        
+        function addLog(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = 'log-line ' + type;
+            div.textContent = msg;
+            logsBox.appendChild(div);
+            logsBox.scrollTop = logsBox.scrollHeight;
+        }
+        
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                data.logs.forEach(l => {
+                    const isNew = !logsBox.textContent.includes(l);
+                    if (isNew) addLog(l);
+                });
+                
+                if (data.ready) {
+                    ready = true;
+                    updateStatus('status-ready', 'Ready ✓');
+                    buildBtn.disabled = false;
+                } else if (data.error) {
+                    updateStatus('status-error', 'Error: ' + data.error);
+                } else {
+                    updateStatus('status-loading', 'Setting up environment...');
+                    buildBtn.disabled = true;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        buildForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!ready) return;
+            
+            const params = new URLSearchParams({
+                url: document.getElementById('pkgUrl').value,
+                name: document.getElementById('pkgName').value,
+                id: document.getElementById('pkgId').value,
+                icon: document.getElementById('pkgIcon').value,
+                type: document.getElementById('pkgType').value,
+                size: document.getElementById('pkgSize').value
+            });
+            
+            buildBtn.disabled = true;
+            spinner.classList.add('show');
+            resultBox.classList.remove('show');
+            
+            try {
+                const res = await fetch('/api/build?' + params);
+                const data = await res.json();
+                
+                spinner.classList.remove('show');
+                buildBtn.disabled = false;
+                
+                if (data.success) {
+                    resultFile.textContent = 'File: ' + data.file;
+                    resultSize.textContent = 'Size: ' + (data.size / 1024 / 1024).toFixed(2) + ' MB';
+                    downloadLink.href = '/api/download/' + data.file;
+                    resultBox.classList.add('show');
+                    addLog('Build complete: ' + data.file, 'log-success');
+                } else {
+                    addLog('Error: ' + data.error, 'log-error');
+                }
+            } catch (e) {
+                spinner.classList.remove('show');
+                buildBtn.disabled = false;
+                addLog('Error: ' + e.message, 'log-error');
+            }
+        });
+        
+        checkStatus();
+        pollInterval = setInterval(checkStatus, 2000);
+    </script>
+</body>
+</html>
