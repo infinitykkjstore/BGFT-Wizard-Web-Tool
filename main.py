@@ -5,6 +5,7 @@ import shutil
 import logging
 import subprocess
 import threading
+import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -244,9 +245,8 @@ make PKG_URL="{params["PKG_URL"]}" PKG_NAME="{params["PKG_NAME"]}" PKG_ID="{para
         log("payload.bin not found after compilation")
         return None, "payload.bin not found"
     
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = params.get("PKG_NAME", "payload").replace(" ", "_")
-    out_name = f"{name}_{ts}.bin"
+    random_name = secrets.token_hex(16)
+    out_name = f"{random_name}.bin"
     out_path = TMP_DIR / out_name
     
     shutil.copy2(PAYLOAD_BIN, out_path)
