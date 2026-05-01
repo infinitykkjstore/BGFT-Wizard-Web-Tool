@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGFT API Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0a0a;
+            --panel: #111;
+            --text: #00ff88;
+            --soft: #00aa66;
+            --border: #005533;
+            --highlight: #ccff00;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: radial-gradient(circle at top, #122216 0%, var(--bg) 55%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .topbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn-link {
+            border: 1px solid var(--text);
+            color: var(--text);
+            text-decoration: none;
+            padding: 10px 14px;
+            background: #0f1a11;
+            transition: 0.25s;
+        }
+        .btn-link:hover { background: var(--text); color: #000; }
+        h1 { text-shadow: 0 0 12px var(--text); margin-bottom: 12px; }
+        .host {
+            padding: 12px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            margin-bottom: 22px;
+            color: var(--highlight);
+            word-break: break-all;
+        }
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+        h2 { margin-bottom: 10px; color: var(--highlight); }
+        p, li { color: var(--soft); line-height: 1.45; }
+        ul { padding-left: 18px; }
+        .endpoint { color: var(--text); margin-bottom: 8px; }
+        .code-wrap {
+            border: 1px solid var(--border);
+            background: #080808;
+            margin-top: 10px;
+        }
+        pre {
+            overflow-x: auto;
+            padding: 12px;
+            color: #9dffbf;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .copy {
+            width: 100%;
+            border: 0;
+            border-top: 1px solid var(--border);
+            background: #0e1f12;
+            color: var(--text);
+            padding: 8px;
+            cursor: pointer;
+        }
+        .copy:hover { background: #13301a; }
+        @media (max-width: 760px) {
+            body { padding: 12px; }
+            .topbar { flex-direction: column; }
+            .btn-link { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <a class="btn-link" href="/">Back to Builder</a>
+            <a class="btn-link" href="https://github.com/infinitykkjstore/BGFT-Payload" target="_blank" rel="noopener">Payload Source Repo</a>
+        </div>
+
+        <h1>BGFT Wizard API Documentation</h1>
+        <div class="host">Current host: <strong>{{ host }}</strong></div>
+
+        <div class="section">
+            <h2>Quick Notes</h2>
+            <ul>
+                <li>All endpoints are HTTP GET except cleanup (POST).</li>
+                <li>Response format is JSON (except file download/icon endpoints).</li>
+                <li>User-facing logs are session-isolated via cookie session.</li>
+                <li>Full internal logs remain only in server output and <code>logs/server.log</code>.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Status</h2>
+            <div class="endpoint">GET {{ host }}/api/status</div>
+            <p>Returns environment readiness.</p>
+            <div class="code-wrap">
+                <pre id="curl-status">curl -s "{{ host }}/api/status"</pre>
+                <button class="copy" data-copy="curl-status">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>User Logs (Session)</h2>
+            <div class="endpoint">GET {{ host }}/api/logs</div>
+            <p>Returns logs only for the current browser/client session.</p>
+            <div class="code-wrap">
+                <pre id="curl-logs">curl -s "{{ host }}/api/logs"</pre>
+                <button class="copy" data-copy="curl-logs">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Extract Metadata</h2>
+            <div class="endpoint">GET {{ host }}/api/meta?url=&lt;PKG_OR_MANIFEST_URL&gt;</div>
+            <p>Reads PKG/manifest metadata: title, ids, type, size, category, and icon URL.</p>
+            <div class="code-wrap">
+                <pre id="curl-meta">curl -G -s "{{ host }}/api/meta" --data-urlencode "url=https://example.com/game.pkg"</pre>
+                <button class="copy" data-copy="curl-meta">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Build Payload</h2>
+            <div class="endpoint">GET {{ host }}/api/build?url=...&amp;name=...&amp;id=...&amp;icon=...&amp;type=...&amp;size=...</div>
+            <p>Compiles payload and returns output filename for download.</p>
+            <div class="code-wrap">
+                <pre id="curl-build">curl -G -s "{{ host }}/api/build" \
+  --data-urlencode "url=https://example.com/game.pkg" \
+  --data-urlencode "name=My Game" \
+  --data-urlencode "id=CUSA00000" \
+  --data-urlencode "icon={{ host }}/api/icon/sample.png" \
+  --data-urlencode "type=PS4GD" \
+  --data-urlencode "size=1234567890"</pre>
+                <button class="copy" data-copy="curl-build">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Download Payload</h2>
+            <div class="endpoint">GET {{ host }}/api/download/&lt;generated-file&gt;</div>
+            <p>Downloads compiled payload file as <code>payload.bin</code>.</p>
+            <div class="code-wrap">
+                <pre id="curl-download">curl -L "{{ host }}/api/download/REPLACE_WITH_FILE.bin" -o payload.bin</pre>
+                <button class="copy" data-copy="curl-download">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Icon Retrieval</h2>
+            <div class="endpoint">GET {{ host }}/api/icon/&lt;filename&gt;</div>
+            <p>Returns stored icon (PNG) extracted during metadata processing.</p>
+            <div class="code-wrap">
+                <pre id="curl-icon">curl -L "{{ host }}/api/icon/REPLACE_WITH_ICON.png" -o icon.png</pre>
+                <button class="copy" data-copy="curl-icon">Copy curl</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Cleanup Old Payloads</h2>
+            <div class="endpoint">POST {{ host }}/api/cleanup</div>
+            <p>Deletes old temporary payload files from server temp folder.</p>
+            <div class="code-wrap">
+                <pre id="curl-cleanup">curl -X POST -s "{{ host }}/api/cleanup"</pre>
+                <button class="copy" data-copy="curl-cleanup">Copy curl</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        document.querySelectorAll('.copy').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const target = document.getElementById(btn.dataset.copy);
+                const ok = await copyText(target.textContent);
+                const old = btn.textContent;
+                btn.textContent = ok ? 'Copied' : 'Copy failed';
+                setTimeout(() => { btn.textContent = old; }, 1000);
+            });
+        });
+    </script>
+</body>
+</html>

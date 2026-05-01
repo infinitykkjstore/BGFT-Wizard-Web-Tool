@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import flask
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, has_request_context
 
 BASEDIR = Path(__file__).parent
 BASE_DIR = BASEDIR / "base"
@@ -35,6 +35,7 @@ PAYLOAD_BIN = PAYLOAD_DIR / "payload.bin"
 
 app = Flask(__name__, template_folder=str(BASEDIR / "templates"))
 app.config['JSON_SORT_KEYS'] = False
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,16 +47,53 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-setup_status = {"complete": False, "error": None, "logs": []}
+setup_status = {"complete": False, "error": None}
 env_ready = threading.Event()
+user_logs = {}
+user_logs_lock = threading.Lock()
+MAX_USER_LOG_LINES = 500
 
-def log(msg):
+
+def _current_session_id():
+    if not has_request_context():
+        return None
+    sid = session.get("sid")
+    if not sid:
+        sid = secrets.token_hex(16)
+        session["sid"] = sid
+    return sid
+
+
+def _append_user_log(line):
+    sid = _current_session_id()
+    if not sid:
+        return
+    with user_logs_lock:
+        if sid not in user_logs:
+            user_logs[sid] = []
+        user_logs[sid].append(line)
+        if len(user_logs[sid]) > MAX_USER_LOG_LINES:
+            user_logs[sid] = user_logs[sid][-MAX_USER_LOG_LINES:]
+
+
+def get_user_logs(limit=100):
+    sid = _current_session_id()
+    if not sid:
+        return []
+    with user_logs_lock:
+        return user_logs.get(sid, [])[-limit:]
+
+
+@app.before_request
+def ensure_session_id():
+    _current_session_id()
+
+def log(msg, user_visible=False):
     ts = datetime.now().strftime("%H:%M:%S")
     line = f"[{ts}] {msg}"
     logger.info(msg)
-    setup_status["logs"].append(line)
-    if len(setup_status["logs"]) > 500:
-        setup_status["logs"] = setup_status["logs"][-500:]
+    if user_visible:
+        _append_user_log(line)
 
 def run_cmd(cmd, cwd=None, capture=True, timeout=300):
     try:
@@ -201,7 +239,7 @@ def cleanup_old_payloads():
             log(f"Cleanup error: {e}")
 
 def compile_payload(params):
-    log(f"Compiling payload: {params.get('PKG_NAME', 'Unknown')}")
+    log(f"Compiling payload: {params.get('PKG_NAME', 'Unknown')}", user_visible=True)
     
     run_cmd("make clean", cwd=str(PAYLOAD_DIR), timeout=30)
     
@@ -218,31 +256,31 @@ make PKG_URL="{params["PKG_URL"]}" PKG_NAME="{params["PKG_NAME"]}" PKG_ID="{para
         f.write(script_content)
     
     os.chmod(script_path, 0o755)
-    log(f"Running build script: {script_path.name}")
+    log(f"Running build script: {script_path.name}", user_visible=True)
     
     code, out, err = run_cmd(str(script_path), timeout=300)
     
     script_path.unlink(missing_ok=True)
     
-    log(f"Make output: {out[:500]}" if out else "No output")
+    log(f"Make output: {out[:500]}" if out else "No output", user_visible=True)
     if err:
-        log(f"Make stderr: {err[:500]}")
+        log(f"Make stderr: {err[:500]}", user_visible=True)
     
     if PAYLOAD_BIN.exists():
-        log("payload.bin generated successfully")
+        log("payload.bin generated successfully", user_visible=True)
     elif code != 0 and "file: not found" in err:
-        log("Warning: 'file' command missing but continuing...")
+        log("Warning: 'file' command missing but continuing...", user_visible=True)
         if (PAYLOAD_DIR / "payload.bin").exists():
-            log("payload.bin found, continuing...")
+            log("payload.bin found, continuing...", user_visible=True)
         else:
-            log(f"Compilation failed: {err}")
+            log(f"Compilation failed: {err}", user_visible=True)
             return None, f"Compilation failed: {err}"
     elif code != 0:
-        log(f"Compilation failed: {err}")
+        log(f"Compilation failed: {err}", user_visible=True)
         return None, f"Compilation failed: {err}"
     
     if not PAYLOAD_BIN.exists():
-        log("payload.bin not found after compilation")
+        log("payload.bin not found after compilation", user_visible=True)
         return None, "payload.bin not found"
     
     random_name = secrets.token_hex(16)
@@ -250,7 +288,7 @@ make PKG_URL="{params["PKG_URL"]}" PKG_NAME="{params["PKG_NAME"]}" PKG_ID="{para
     out_path = TMP_DIR / out_name
     
     shutil.copy2(PAYLOAD_BIN, out_path)
-    log(f"Payload saved: {out_name} ({out_path.stat().st_size} bytes)")
+    log(f"Payload saved: {out_name} ({out_path.stat().st_size} bytes)", user_visible=True)
     
     return out_path, None
 
@@ -268,10 +306,10 @@ def background_setup():
 
 def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
     """Extrai metadados do PKG/manifesto usando LibOrbisPkg"""
-    log(f"Extracting metadata from: {pkg_url}")
+    log(f"Extracting metadata from: {pkg_url}", user_visible=True)
     
     if PKGMetadataExtractor is None:
-        log("LibOrbisPkg not available")
+        log("LibOrbisPkg not available", user_visible=True)
         return {"success": False, "error": "LibOrbisPkg module not found"}
     
     try:
@@ -295,7 +333,7 @@ def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
             
             with open(icon_path, 'wb') as f:
                 f.write(icon_data)
-            log(f"Icon saved: {icon_path.name}")
+            log(f"Icon saved: {icon_path.name}", user_visible=True)
             icon_url = f"{host_url}api/icon/{icon_path.name}"
         
         return {
@@ -310,7 +348,7 @@ def extract_pkg_metadata(pkg_url: str, host_url: str = "") -> dict:
         }
         
     except Exception as e:
-        log(f"Metadata extraction failed: {e}")
+        log(f"Metadata extraction failed: {e}", user_visible=True)
         return {"success": False, "error": str(e)}
 
 @app.route("/api/meta")
@@ -351,18 +389,28 @@ def api_icon(filename):
 def index():
     return render_template("index.html")
 
+
+@app.route("/docs")
+def docs_page():
+    host = request.url_root.rstrip("/")
+    return render_template("docs.html", host=host)
+
 @app.route("/api/status")
 def api_status():
     return jsonify({
         "ready": setup_status["complete"],
-        "error": setup_status["error"],
-        "logs": setup_status["logs"][-50:]
+        "error": setup_status["error"]
     })
+
+
+@app.route("/api/logs")
+def api_logs():
+    return jsonify({"logs": get_user_logs(120)})
 
 @app.route("/api/build")
 def api_build():
     if not setup_status["complete"]:
-        return jsonify({"error": "Environment not ready", "logs": setup_status["logs"]}), 400
+        return jsonify({"error": "Environment not ready", "logs": get_user_logs(120)}), 400
     
     params = {
         "PKG_URL": request.args.get("url", ""),
@@ -393,13 +441,13 @@ def api_build():
     payload_path, err = compile_payload(params)
     
     if err:
-        return jsonify({"error": err, "logs": setup_status["logs"]}), 500
+        return jsonify({"error": err, "logs": get_user_logs(120)}), 500
     
     return jsonify({
         "success": True,
         "file": payload_path.name,
         "size": payload_path.stat().st_size,
-        "logs": setup_status["logs"]
+        "logs": get_user_logs(120)
     })
 
 @app.route("/api/download/<path:filename>")
