@@ -1,33 +1,58 @@
 # BGFT-Wizard-Web-Tool
 
-Tool/API to compile on-demand BGFT installer payloads for PS4 via web.
+Web tool + HTTP API to compile BGFT PS4 payloads on demand.
 
-## Web UI
+## Web routes
 
-- Main builder: `/`
-- API documentation page: `/docs`
+- Builder UI: `/`
+- API Docs page: `/docs`
 
-The docs page is generated with the current host automatically (for ready-to-copy curl examples).
+The `/docs` page uses the current host automatically and provides copy buttons for command examples.
 
-## API Overview
+## Important curl note (Windows)
 
-Base URL example:
+On PowerShell, `curl` is often an alias for `Invoke-WebRequest`. Use `curl.exe` to run the commands exactly as written.
 
-```bash
+## Base URL
+
+Default local base URL:
+
+```text
 http://127.0.0.1:51584
 ```
 
-### 1) Server Status
+## Session behavior
 
-- Method: `GET`
-- Endpoint: `/api/status`
-- Description: Returns setup state.
+- User logs are isolated by session cookie.
+- Server logs remain only in `logs/server.log` and terminal output.
+- If you call `/api/logs` from terminal, keep cookies to stay in the same session:
 
 ```bash
-curl -s "http://127.0.0.1:51584/api/status"
+curl.exe -c cookies.txt -b cookies.txt "http://127.0.0.1:51584/api/status"
 ```
 
-Example response:
+Use `-c cookies.txt -b cookies.txt` in the other commands when you want persistent session logs.
+
+---
+
+## API Reference
+
+### 1) GET `/api/status`
+
+Returns environment setup status.
+
+**Response fields**
+
+- `ready` (boolean): `true` when build environment is ready.
+- `error` (string or null): setup error reason if initialization failed.
+
+**Command**
+
+```bash
+curl.exe "http://127.0.0.1:51584/api/status"
+```
+
+**Example response**
 
 ```json
 {
@@ -36,17 +61,23 @@ Example response:
 }
 ```
 
-### 2) Session Logs
+---
 
-- Method: `GET`
-- Endpoint: `/api/logs`
-- Description: Returns logs for the current user session only.
+### 2) GET `/api/logs`
+
+Returns session-scoped user-visible logs.
+
+**Response fields**
+
+- `logs` (array of strings): timestamped log lines for current session only.
+
+**Command**
 
 ```bash
-curl -s "http://127.0.0.1:51584/api/logs"
+curl.exe -c cookies.txt -b cookies.txt "http://127.0.0.1:51584/api/logs"
 ```
 
-Example response:
+**Example response**
 
 ```json
 {
@@ -57,19 +88,39 @@ Example response:
 }
 ```
 
-### 3) Extract PKG Metadata
+---
 
-- Method: `GET`
-- Endpoint: `/api/meta`
-- Query params:
-  - `url` (required): PKG or manifest URL
+### 3) GET `/api/meta`
+
+Extracts metadata from a PKG or manifest URL.
+
+**Query parameters**
+
+- `url` (required, string): direct PKG URL or manifest URL.
+
+**Command**
 
 ```bash
-curl -G -s "http://127.0.0.1:51584/api/meta" \
-  --data-urlencode "url=https://example.com/game.pkg"
+curl.exe -c cookies.txt -b cookies.txt --get "http://127.0.0.1:51584/api/meta" --data-urlencode "url=https://example.com/game.pkg"
 ```
 
-Success response (example):
+**Success response fields**
+
+- `success` (boolean)
+- `title` (string)
+- `title_id` (string)
+- `content_id` (string)
+- `category` (string)
+- `pkg_size` (integer, bytes)
+- `pkg_type` (string, ex: `PS4GD`)
+- `icon_path` (string URL or null)
+
+**Error response**
+
+- HTTP `400`: missing `url`
+- HTTP `500`: extraction failed (`error` field)
+
+**Success example**
 
 ```json
 {
@@ -84,29 +135,40 @@ Success response (example):
 }
 ```
 
-### 4) Build Payload
+---
 
-- Method: `GET`
-- Endpoint: `/api/build`
-- Query params:
-  - `url` (required)
-  - `name` (required)
-  - `id` (required)
-  - `icon` (optional)
-  - `type` (optional, default `PS4GD`)
-  - `size` (optional, integer)
+### 4) GET `/api/build`
+
+Compiles payload and returns generated output filename.
+
+**Query parameters**
+
+- `url` (required, string): PKG/manifest URL.
+- `name` (required, string): package title.
+- `id` (required, string): title/content id.
+- `icon` (optional, string URL): icon URL.
+- `type` (optional, string): defaults to `PS4GD`.
+- `size` (optional, integer): package size in bytes.
+
+**Command**
 
 ```bash
-curl -G -s "http://127.0.0.1:51584/api/build" \
-  --data-urlencode "url=https://example.com/game.pkg" \
-  --data-urlencode "name=My Game" \
-  --data-urlencode "id=CUSA00000" \
-  --data-urlencode "icon=http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" \
-  --data-urlencode "type=PS4GD" \
-  --data-urlencode "size=1234567890"
+curl.exe -c cookies.txt -b cookies.txt --get "http://127.0.0.1:51584/api/build" --data-urlencode "url=https://example.com/game.pkg" --data-urlencode "name=My Game" --data-urlencode "id=CUSA00000" --data-urlencode "icon=http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" --data-urlencode "type=PS4GD" --data-urlencode "size=1234567890"
 ```
 
-Success response (example):
+**Success response fields**
+
+- `success` (boolean)
+- `file` (string): generated filename (random `.bin` in temp output)
+- `size` (integer): output size in bytes
+- `logs` (array[string]): session logs related to build
+
+**Error response**
+
+- HTTP `400`: environment not ready or required params missing
+- HTTP `500`: build failed (`error` + `logs`)
+
+**Success example**
 
 ```json
 {
@@ -120,40 +182,72 @@ Success response (example):
 }
 ```
 
-### 5) Download Compiled Payload
+---
 
-- Method: `GET`
-- Endpoint: `/api/download/<filename>`
-- Description: Downloads the file as `payload.bin`.
+### 5) GET `/api/download/<filename>`
 
-```bash
-curl -L "http://127.0.0.1:51584/api/download/0123456789abcdef0123456789abcdef.bin" -o payload.bin
-```
+Downloads previously built payload as attachment (`payload.bin`).
 
-### 6) Get Icon
+**Path parameter**
 
-- Method: `GET`
-- Endpoint: `/api/icon/<filename>`
-- Description: Returns PNG icon extracted from package/manifest.
+- `filename` (required): value from `/api/build` response `file`.
+
+**Command**
 
 ```bash
-curl -L "http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" -o icon.png
+curl.exe -L "http://127.0.0.1:51584/api/download/0123456789abcdef0123456789abcdef.bin" -o payload.bin
 ```
 
-### 7) Cleanup Old Payloads
+**Error response**
 
-- Method: `POST`
-- Endpoint: `/api/cleanup`
-- Description: Removes old temp payload files.
+- HTTP `400`: environment not ready
+- HTTP `404`: file not found
+
+---
+
+### 6) GET `/api/icon/<filename>`
+
+Returns extracted icon as PNG.
+
+**Path parameter**
+
+- `filename` (required): icon file name returned by metadata step.
+
+**Command**
 
 ```bash
-curl -X POST -s "http://127.0.0.1:51584/api/cleanup"
+curl.exe -L "http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" -o icon.png
 ```
 
-## Security Notes
+---
 
-- Full logs are server-side only (`logs/server.log` and process output).
-- Browser/API clients only receive per-session user logs via `/api/logs` and build responses.
+### 7) POST `/api/cleanup`
+
+Deletes old temporary payload files from output directory.
+
+**Command**
+
+```bash
+curl.exe -X POST "http://127.0.0.1:51584/api/cleanup"
+```
+
+**Example response**
+
+```json
+{
+  "success": true
+}
+```
+
+---
+
+## Typical API flow for external integrations
+
+1. Call `/api/status` and check `ready=true`.
+2. Call `/api/meta` with package URL.
+3. Call `/api/build` using metadata values.
+4. Download with `/api/download/<file>`.
+5. Optional: read `/api/logs` during steps for session progress.
 
 ## Run
 
