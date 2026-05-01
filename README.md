@@ -9,16 +9,15 @@ Web tool + HTTP API to compile BGFT PS4 payloads on demand.
 
 The `/docs` page uses the current host automatically and provides copy buttons for command examples.
 
-## Important curl note (Windows)
+## Base URLs
 
-On PowerShell, `curl` is often an alias for `Invoke-WebRequest`. Use `curl.exe` to run the commands exactly as written.
-
-## Base URL
-
-Default local base URL:
+Use the appropriate host for your deployment:
 
 ```text
-http://127.0.0.1:51584
+https://bgft-wizard.infinitydev.shop   (HTTPS proxy, follows redirects)
+https://drg34g.up.railway.app          (HTTPS direct)
+http://shuttle.proxy.rlwy.net:26573     (HTTP direct)
+http://127.0.0.1:51584                 (local development)
 ```
 
 ## Session behavior
@@ -28,7 +27,7 @@ http://127.0.0.1:51584
 - If you call `/api/logs` from terminal, keep cookies to stay in the same session:
 
 ```bash
-curl.exe -c cookies.txt -b cookies.txt "http://127.0.0.1:51584/api/status"
+curl -c cookies.txt -b cookies.txt "https://bgft-wizard.infinitydev.shop/api/status"
 ```
 
 Use `-c cookies.txt -b cookies.txt` in the other commands when you want persistent session logs.
@@ -49,7 +48,7 @@ Returns environment setup status.
 **Command**
 
 ```bash
-curl.exe "http://127.0.0.1:51584/api/status"
+curl "https://bgft-wizard.infinitydev.shop/api/status"
 ```
 
 **Example response**
@@ -74,7 +73,7 @@ Returns session-scoped user-visible logs.
 **Command**
 
 ```bash
-curl.exe -c cookies.txt -b cookies.txt "http://127.0.0.1:51584/api/logs"
+curl -c cookies.txt -b cookies.txt "https://bgft-wizard.infinitydev.shop/api/logs"
 ```
 
 **Example response**
@@ -101,7 +100,7 @@ Extracts metadata from a PKG or manifest URL.
 **Command**
 
 ```bash
-curl.exe -c cookies.txt -b cookies.txt --get "http://127.0.0.1:51584/api/meta" --data-urlencode "url=https://example.com/game.pkg"
+curl -c cookies.txt -b cookies.txt --get "https://bgft-wizard.infinitydev.shop/api/meta" --data-urlencode "url=https://example.com/game.pkg"
 ```
 
 **Success response fields**
@@ -131,7 +130,7 @@ curl.exe -c cookies.txt -b cookies.txt --get "http://127.0.0.1:51584/api/meta" -
   "category": "gd",
   "pkg_size": 1234567890,
   "pkg_type": "PS4GD",
-  "icon_path": "http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png"
+  "icon_path": "https://bgft-wizard.infinitydev.shop/api/icon/GameName_CUSA00000.png"
 }
 ```
 
@@ -153,7 +152,7 @@ Compiles payload and returns generated output filename.
 **Command**
 
 ```bash
-curl.exe -c cookies.txt -b cookies.txt --get "http://127.0.0.1:51584/api/build" --data-urlencode "url=https://example.com/game.pkg" --data-urlencode "name=My Game" --data-urlencode "id=CUSA00000" --data-urlencode "icon=http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" --data-urlencode "type=PS4GD" --data-urlencode "size=1234567890"
+curl -c cookies.txt -b cookies.txt --get "https://bgft-wizard.infinitydev.shop/api/build" --data-urlencode "url=https://example.com/game.pkg" --data-urlencode "name=My Game" --data-urlencode "id=CUSA00000" --data-urlencode "icon=https://bgft-wizard.infinitydev.shop/api/icon/GameName_CUSA00000.png" --data-urlencode "type=PS4GD" --data-urlencode "size=1234567890"
 ```
 
 **Success response fields**
@@ -195,7 +194,7 @@ Downloads previously built payload as attachment (`payload.bin`).
 **Command**
 
 ```bash
-curl.exe -L "http://127.0.0.1:51584/api/download/0123456789abcdef0123456789abcdef.bin" -o payload.bin
+curl -L "https://bgft-wizard.infinitydev.shop/api/download/0123456789abcdef0123456789abcdef.bin" -o payload.bin
 ```
 
 **Error response**
@@ -216,7 +215,7 @@ Returns extracted icon as PNG.
 **Command**
 
 ```bash
-curl.exe -L "http://127.0.0.1:51584/api/icon/GameName_CUSA00000.png" -o icon.png
+curl -L "https://bgft-wizard.infinitydev.shop/api/icon/GameName_CUSA00000.png" -o icon.png
 ```
 
 ---
@@ -228,7 +227,7 @@ Deletes old temporary payload files from output directory.
 **Command**
 
 ```bash
-curl.exe -X POST "http://127.0.0.1:51584/api/cleanup"
+curl -X POST "https://bgft-wizard.infinitydev.shop/api/cleanup"
 ```
 
 **Example response**

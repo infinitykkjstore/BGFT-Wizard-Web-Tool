@@ -34,14 +34,17 @@
         }
         .btn-link:hover { background: var(--text); color: #000; }
         h1 { margin-bottom: 12px; text-shadow: 0 0 12px var(--text); }
-        .host, .note {
+        .host-box {
             padding: 12px;
             border: 1px solid var(--border);
             background: var(--panel);
             margin-bottom: 14px;
-            color: var(--highlight);
-            word-break: break-all;
         }
+        .host-box strong { color: var(--highlight); word-break: break-all; }
+        .host-label { color: var(--soft); font-size: 12px; margin-bottom: 6px; }
+        .example-hosts { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+        .example-hosts span { display: block; color: var(--soft); font-size: 11px; margin: 4px 0; }
+        .note { color: var(--soft); font-size: 13px; margin-bottom: 14px; }
         .section {
             background: var(--panel);
             border: 1px solid var(--border);
@@ -94,18 +97,19 @@
         </div>
 
         <h1>BGFT Wizard API Documentation</h1>
-        <div class="host">Current host: <strong>{{ host }}</strong></div>
-        <div class="note">For Windows PowerShell, use <code>curl.exe</code> (not <code>curl</code> alias) to run these examples exactly.</div>
 
-        <div class="section">
-            <h2>Session and curl usage</h2>
-            <p>This API keeps user logs per session cookie. For terminal usage, keep cookies in a file so calls share the same session.</p>
-            <div class="code-wrap">
-                <pre id="curl-session">curl.exe -c cookies.txt -b cookies.txt "{{ host }}/api/status"</pre>
-                <button class="copy" data-copy="curl-session">Copy command</button>
+        <div class="host-box">
+            <div class="host-label">Your current host (based on how you accessed this page):</div>
+            <strong>{{ host }}</strong>
+            <div class="example-hosts">
+                <span>Example hosts (use the one matching your deployment):</span>
+                <span>• https://bgft-wizard.infinitydev.shop (HTTPS proxy, follows redirects)</span>
+                <span>• https://drg34g.up.railway.app (HTTPS direct)</span>
+                <span>• http://shuttle.proxy.rlwy.net:26573 (HTTP direct)</span>
             </div>
-            <p class="kv">Use <code>-c cookies.txt -b cookies.txt</code> in all commands below when you want your own session logs in <code>/api/logs</code>.</p>
         </div>
+
+        <p class="note">Sessions use cookies. Add <code>-c cookies.txt -b cookies.txt</code> to commands for persistent session logs.</p>
 
         <div class="section">
             <h2>GET /api/status</h2>
@@ -116,7 +120,7 @@
                 <li><code>error</code>: string or null, setup error if initialization failed.</li>
             </ul>
             <div class="code-wrap">
-                <pre id="curl-status">curl.exe "{{ host }}/api/status"</pre>
+                <pre id="curl-status">curl "{{ host }}/api/status"</pre>
                 <button class="copy" data-copy="curl-status">Copy command</button>
             </div>
             <h3>Response example</h3>
@@ -132,7 +136,7 @@
                 <li>Server/internal logs are not exposed here.</li>
             </ul>
             <div class="code-wrap">
-                <pre id="curl-logs">curl.exe -c cookies.txt -b cookies.txt "{{ host }}/api/logs"</pre>
+                <pre id="curl-logs">curl -c cookies.txt -b cookies.txt "{{ host }}/api/logs"</pre>
                 <button class="copy" data-copy="curl-logs">Copy command</button>
             </div>
             <h3>Response example</h3>
@@ -147,7 +151,7 @@
                 <li><code>url</code> (required): direct PKG URL or manifest URL.</li>
             </ul>
             <div class="code-wrap">
-                <pre id="curl-meta">curl.exe -c cookies.txt -b cookies.txt --get "{{ host }}/api/meta" --data-urlencode "url=https://example.com/game.pkg"</pre>
+                <pre id="curl-meta">curl -c cookies.txt -b cookies.txt --get "{{ host }}/api/meta" --data-urlencode "url=https://example.com/game.pkg"</pre>
                 <button class="copy" data-copy="curl-meta">Copy command</button>
             </div>
             <h3>Success response fields</h3>
@@ -177,7 +181,7 @@
                 <li><code>size</code> (optional): package size in bytes (integer).</li>
             </ul>
             <div class="code-wrap">
-                <pre id="curl-build">curl.exe -c cookies.txt -b cookies.txt --get "{{ host }}/api/build" --data-urlencode "url=https://example.com/game.pkg" --data-urlencode "name=My Game" --data-urlencode "id=CUSA00000" --data-urlencode "icon={{ host }}/api/icon/sample.png" --data-urlencode "type=PS4GD" --data-urlencode "size=1234567890"</pre>
+                <pre id="curl-build">curl -c cookies.txt -b cookies.txt --get "{{ host }}/api/build" --data-urlencode "url=https://example.com/game.pkg" --data-urlencode "name=My Game" --data-urlencode "id=CUSA00000" --data-urlencode "icon={{ host }}/api/icon/sample.png" --data-urlencode "type=PS4GD" --data-urlencode "size=1234567890"</pre>
                 <button class="copy" data-copy="curl-build">Copy command</button>
             </div>
             <h3>Success response fields</h3>
@@ -199,7 +203,7 @@
             <div class="endpoint">Method: GET | Endpoint: {{ host }}/api/download/&lt;file&gt;</div>
             <p>Downloads generated payload file as <code>payload.bin</code>.</p>
             <div class="code-wrap">
-                <pre id="curl-download">curl.exe -L "{{ host }}/api/download/REPLACE_WITH_FILE.bin" -o payload.bin</pre>
+                <pre id="curl-download">curl -L "{{ host }}/api/download/REPLACE_WITH_FILE.bin" -o payload.bin</pre>
                 <button class="copy" data-copy="curl-download">Copy command</button>
             </div>
         </div>
@@ -209,7 +213,7 @@
             <div class="endpoint">Method: GET | Endpoint: {{ host }}/api/icon/&lt;file&gt;</div>
             <p>Returns extracted icon as PNG when available.</p>
             <div class="code-wrap">
-                <pre id="curl-icon">curl.exe -L "{{ host }}/api/icon/REPLACE_WITH_ICON.png" -o icon.png</pre>
+                <pre id="curl-icon">curl -L "{{ host }}/api/icon/REPLACE_WITH_ICON.png" -o icon.png</pre>
                 <button class="copy" data-copy="curl-icon">Copy command</button>
             </div>
         </div>
@@ -219,7 +223,7 @@
             <div class="endpoint">Method: POST | Endpoint: {{ host }}/api/cleanup</div>
             <p>Removes stale payload output files from temp directory.</p>
             <div class="code-wrap">
-                <pre id="curl-cleanup">curl.exe -X POST "{{ host }}/api/cleanup"</pre>
+                <pre id="curl-cleanup">curl -X POST "{{ host }}/api/cleanup"</pre>
                 <button class="copy" data-copy="curl-cleanup">Copy command</button>
             </div>
             <h3>Response example</h3>

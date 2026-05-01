@@ -393,7 +393,12 @@ def index():
 @app.route("/docs")
 def docs_page():
     host = request.url_root.rstrip("/")
-    return render_template("docs.html", host=host)
+    example_hosts = [
+        "https://bgft-wizard.infinitydev.shop",
+        "https://drg34g.up.railway.app",
+        "http://shuttle.proxy.rlwy.net:26573"
+    ]
+    return render_template("docs.html", host=host, example_hosts=example_hosts)
 
 @app.route("/api/status")
 def api_status():
