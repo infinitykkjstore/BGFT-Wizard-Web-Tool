@@ -14,7 +14,24 @@
             padding: 20px;
         }
         .container { max-width: 1200px; margin: 0 auto; }
-        .topbar { display: flex; justify-content: flex-end; margin-bottom: 15px; }
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .ps4-badge {
+            display: none;
+            padding: 8px 12px;
+            background: #1a0f1a;
+            border: 1px solid #ff00ff;
+            color: #ff00ff;
+            font-size: 12px;
+            text-shadow: 0 0 5px #ff00ff;
+        }
+        .ps4-badge.show { display: inline-block; }
         .link-btn {
             display: inline-block;
             padding: 10px 14px;
@@ -69,6 +86,13 @@
         }
         .btn:hover { background: #00ff00; color: #000; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-inject {
+            background: #220033;
+            border: 1px solid #ff00ff;
+            color: #ff00ff;
+        }
+        .btn-inject:hover { background: #ff00ff; color: #000; }
+        .btn-inject:disabled { opacity: 0.5; cursor: not-allowed; }
         .logs-box {
             background: #000;
             border: 1px solid #004400;
@@ -80,6 +104,7 @@
         .log-line { margin-bottom: 3px; }
         .log-error { color: #ff0000; }
         .log-success { color: #00ff00; }
+        .log-ps4 { color: #ff00ff; }
         .result-box {
             display: none;
             background: #111;
@@ -88,6 +113,9 @@
             margin-top: 20px;
         }
         .result-box.show { display: block; }
+        .result-box.ps4-mode {
+            border-color: #ff00ff;
+        }
         .download-link {
             display: inline-block;
             padding: 10px 20px;
@@ -96,9 +124,34 @@
             text-decoration: none;
             margin-top: 10px;
         }
+        .inject-btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #ff00ff;
+            color: #000;
+            text-decoration: none;
+            margin-top: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: all 0.25s;
+        }
+        .inject-btn:hover { background: #cc00cc; }
+        .inject-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .inject-log {
+            margin-top: 10px;
+            padding: 10px;
+            background: #0a050a;
+            border: 1px solid #440044;
+            color: #ff00ff;
+            font-size: 12px;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .inject-log.show { display: block; }
         .spinner { display: none; text-align: center; padding: 20px; }
         .spinner.show { display: block; }
-        
+
         .meta-card {
             background: #111;
             border: 1px solid #004400;
@@ -109,6 +162,9 @@
             align-items: flex-start;
         }
         .meta-card.hidden { display: none; }
+        .meta-card.ps4-mode {
+            border-color: #ff00ff;
+        }
         .meta-card img {
             width: 128px;
             height: 128px;
@@ -140,21 +196,22 @@
 <body>
     <div class="container">
         <div class="topbar">
+            <span class="ps4-badge" id="ps4Badge">PS4 Identificado! FW: ---</span>
             <a class="link-btn" href="/docs">API Documentation</a>
         </div>
         <h1>BGFT Payload Builder</h1>
-        
+
         <div class="status-box">
             <span class="status-indicator" id="statusDot"></span>
             <span id="statusText">Checking environment...</span>
         </div>
-        
+
         <div class="form-group">
             <label>Package URL (PKG or Manifest)</label>
             <input type="text" id="pkgUrl" placeholder="https://...pkg or ...manifest.json">
             <button type="button" class="btn" id="fetchBtn">Fetch & Build</button>
         </div>
-        
+
         <div class="meta-card hidden" id="metaCard">
             <img id="iconImg" src="" alt="Icon">
             <div class="meta-details">
@@ -166,23 +223,27 @@
                 <button type="button" class="btn" id="buildBtn">Build Payload</button>
             </div>
         </div>
-        
+
         <div class="spinner" id="spinner">
             <h2>Processing...</h2>
         </div>
-        
+
         <div class="result-box" id="resultBox">
-            <h2>Build Complete!</h2>
+            <h2 id="resultTitle">Build Complete!</h2>
             <p id="resultInfo"></p>
             <a class="download-link" id="downloadLink" href="#">Download payload.bin</a>
+            <button type="button" class="inject-btn" id="injectBtn" style="display:none;">Inject Payload to PS4</button>
+            <pre class="inject-log" id="injectLog"></pre>
             <button type="button" class="btn" id="newBtn" style="margin-top:10px;padding:10px;">New Payload</button>
         </div>
-        
+
         <h2 style="margin-top: 30px;">Logs</h2>
         <div class="logs-box" id="logsBox"></div>
     </div>
-    
+
     <script>
+        const BINLOADER_URL = "http://127.0.0.1:9090";
+
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const logsBox = document.getElementById('logsBox');
@@ -198,14 +259,30 @@
         const buildBtn = document.getElementById('buildBtn');
         const spinner = document.getElementById('spinner');
         const resultBox = document.getElementById('resultBox');
+        const resultTitle = document.getElementById('resultTitle');
         const resultInfo = document.getElementById('resultInfo');
         const downloadLink = document.getElementById('downloadLink');
+        const injectBtn = document.getElementById('injectBtn');
+        const injectLog = document.getElementById('injectLog');
         const newBtn = document.getElementById('newBtn');
-        
+        const ps4Badge = document.getElementById('ps4Badge');
+
         let currentMeta = null;
         let ready = false;
+        let currentFile = null;
+        let isPS4 = false;
         const seenServerLines = new Set();
-        
+
+        function detectPS4() {
+            const ua = navigator.userAgent;
+            const ps4Match = ua.match(/PlayStation\s*4\/([\d.]+)/);
+            if (ps4Match) {
+                isPS4 = true;
+                ps4Badge.textContent = 'PS4 Identificado! FW: ' + ps4Match[1];
+                ps4Badge.classList.add('show');
+            }
+        }
+
         function log(msg, type = '') {
             const div = document.createElement('div');
             div.className = 'log-line ' + type;
@@ -213,12 +290,12 @@
             logsBox.appendChild(div);
             logsBox.scrollTop = logsBox.scrollHeight;
         }
-        
+
         function updateStatus(state, text) {
             statusDot.className = 'status-indicator ' + state;
             statusText.textContent = text;
         }
-        
+
         async function checkStatus() {
             try {
                 const res = await fetch('/api/status');
@@ -240,23 +317,23 @@
                 });
             } catch (e) { console.error(e); }
         }
-        
+
         async function fetchMetadata() {
             const url = pkgUrl.value.trim();
             if (!url) { log('Enter URL', 'log-error'); return; }
-            
+
             fetchBtn.disabled = true;
             fetchBtn.textContent = 'Fetching...';
             spinner.classList.add('show');
-            
+
             try {
                 const res = await fetch('/api/meta?url=' + encodeURIComponent(url));
                 const data = await res.json();
-                
+
                 fetchBtn.disabled = false;
                 fetchBtn.textContent = 'Fetch & Build';
                 spinner.classList.remove('show');
-                
+
                 if (data.success) {
                     currentMeta = { url, ...data };
                     iconImg.src = data.icon_path || '';
@@ -266,6 +343,11 @@
                     metaSize.textContent = 'Size: ' + ((data.pkg_size || 0) / 1024 / 1024 / 1024).toFixed(2) + ' GB';
                     metaCategory.textContent = 'Category: ' + (data.category || 'gd');
                     metaCard.classList.remove('hidden');
+
+                    if (isPS4) {
+                        metaCard.classList.add('ps4-mode');
+                    }
+
                     log('Loaded: ' + data.title, 'log-success');
                 } else {
                     log('Error: ' + data.error, 'log-error');
@@ -277,14 +359,14 @@
                 log('Error: ' + e.message, 'log-error');
             }
         }
-        
+
         async function buildPayload() {
             if (!currentMeta || !ready) return;
-            
+
             buildBtn.disabled = true;
             spinner.classList.add('show');
             resultBox.classList.remove('show');
-            
+
             try {
                 const params = new URLSearchParams({
                     url: currentMeta.url,
@@ -294,17 +376,29 @@
                     type: currentMeta.pkg_type || 'PS4GD',
                     size: currentMeta.pkg_size || 0
                 });
-                
+
                 const res = await fetch('/api/build?' + params);
                 const data = await res.json();
-                
+
                 buildBtn.disabled = false;
                 spinner.classList.remove('show');
-                
+
                 if (data.success) {
+                    currentFile = data.file;
                     resultInfo.textContent = 'Size: ' + (data.size / 1024 / 1024).toFixed(2) + ' MB';
-                    downloadLink.href = '/api/download/' + data.file;
                     resultBox.classList.add('show');
+
+                    if (isPS4) {
+                        resultBox.classList.add('ps4-mode');
+                        resultTitle.textContent = 'Build Complete!';
+                        downloadLink.style.display = 'none';
+                        injectBtn.style.display = 'inline-block';
+                    } else {
+                        downloadLink.href = '/api/download/' + data.file;
+                        downloadLink.style.display = 'inline-block';
+                        injectBtn.style.display = 'none';
+                    }
+
                     log('Build complete', 'log-success');
                 } else {
                     log('Error: ' + data.error, 'log-error');
@@ -315,18 +409,61 @@
                 log('Error: ' + e.message, 'log-error');
             }
         }
-        
+
+        async function injectPayload() {
+            if (!currentFile) return;
+
+            injectBtn.disabled = true;
+            injectBtn.textContent = 'Injecting...';
+            injectLog.classList.add('show');
+            injectLog.textContent = 'Loading payload...\n';
+
+            try {
+                const response = await fetch('/api/download/' + currentFile);
+                const data = await response.arrayBuffer();
+
+                injectLog.textContent += 'Sending to binloader...\n';
+
+                const result = await fetch(BINLOADER_URL, {
+                    method: 'POST',
+                    body: data
+                });
+
+                if (result.ok) {
+                    injectLog.textContent += 'Payload injected successfully!\n';
+                    log('Payload injected to PS4', 'log-ps4');
+                } else {
+                    injectLog.textContent += 'Failed to inject payload\n';
+                    log('Inject failed', 'log-error');
+                }
+            } catch (e) {
+                injectLog.textContent += 'Error: ' + e.message + '\n';
+                log('Inject error: ' + e.message, 'log-error');
+            }
+
+            injectBtn.disabled = false;
+            injectBtn.textContent = 'Inject Payload to PS4';
+        }
+
         function resetForm() {
             currentMeta = null;
-            metaCard.classList.add('hidden');
-            resultBox.classList.remove('show');
+            currentFile = null;
+            metaCard.classList.remove('hidden', 'ps4-mode');
+            resultBox.classList.remove('show', 'ps4-mode');
+            downloadLink.style.display = 'inline-block';
+            injectBtn.style.display = 'none';
+            injectLog.classList.remove('show');
+            injectLog.textContent = '';
             pkgUrl.value = '';
         }
-        
+
+        detectPS4();
+
         fetchBtn.addEventListener('click', fetchMetadata);
         buildBtn.addEventListener('click', buildPayload);
+        injectBtn.addEventListener('click', injectPayload);
         newBtn.addEventListener('click', resetForm);
-        
+
         checkStatus();
         pollUserLogs();
         setInterval(checkStatus, 3000);
